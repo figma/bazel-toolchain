@@ -1227,7 +1227,12 @@ def _impl(ctx):
                     ACTION_NAMES.objcpp_compile,
                 ],
                 flag_groups = [
-                    flag_group(flags = ["-fsanitize=address"]),
+                    flag_group(flags = [
+                        "-fsanitize=address",
+                        # https://github.com/google/sanitizers/issues/1017
+                        "-mllvm",
+                        "-asan-use-private-alias=1",
+                    ]),
                 ],
                 with_features = [
                     with_feature_set(features = ["asan"]),
