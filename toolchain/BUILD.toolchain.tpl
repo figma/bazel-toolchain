@@ -37,6 +37,7 @@ filegroup(
 filegroup(
     name = "internal-use-wrapped-tools",
     srcs = [
+        %{wrapped_clang_tools}
         "bin/cc_wrapper.sh",
         "bin/host_libtool_wrapper.sh",
     ],
