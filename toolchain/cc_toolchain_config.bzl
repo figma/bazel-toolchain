@@ -13,6 +13,10 @@
 # limitations under the License.
 
 load(
+    "//toolchain/internal:osx_cc_toolchain_config.bzl",
+    osx_cc_toolchain_config = "cc_toolchain_config",
+)
+load(
     "//toolchain/internal:unix_cc_toolchain_config.bzl",
     unix_cc_toolchain_config = "cc_toolchain_config",
 )
@@ -60,10 +64,19 @@ def cc_toolchain_config(
         abi_version,
         abi_libc_version,
     ) = {
+        "darwin-arm64": (
+            "clang-arm64-darwin",
+            "arm64-apple-macosx",
+            "darwin_arm64",
+            "macosx",
+            "clang",
+            "darwin_arm64",
+            "darwin_arm64",
+        ),
         "darwin-x86_64": (
             "clang-x86_64-darwin",
             "x86_64-apple-macosx",
-            "darwin",
+            "darwin_x86_64",
             "macosx",
             "clang",
             "darwin_x86_64",
@@ -235,13 +248,13 @@ def cc_toolchain_config(
 
     # C++ built-in include directories:
     cxx_builtin_include_directories = []
-    if toolchain_path_prefix.startswith("/"):
-        cxx_builtin_include_directories.extend([
-            toolchain_path_prefix + "include/c++/v1",
-            toolchain_path_prefix + "include/{}/c++/v1".format(target_system_name),
-            toolchain_path_prefix + "lib/clang/{}/include".format(llvm_version),
-            toolchain_path_prefix + "lib64/clang/{}/include".format(llvm_version),
-        ])
+    compiler_include_directories = [
+        toolchain_path_prefix + "include/c++/v1",
+        toolchain_path_prefix + "include/{}/c++/v1".format(target_system_name),
+        toolchain_path_prefix + "lib/clang/{}/include".format(llvm_version),
+        toolchain_path_prefix + "lib64/clang/{}/include".format(llvm_version),
+    ]
+    cxx_builtin_include_directories.extend(compiler_include_directories)
 
     sysroot_path = compiler_configuration["sysroot_path"]
     sysroot_prefix = ""
@@ -333,28 +346,46 @@ def cc_toolchain_config(
         unfiltered_compile_flags = _fmt_flags(compiler_configuration["unfiltered_compile_flags"], toolchain_path_prefix)
 
     # Source: https://cs.opensource.google/bazel/bazel/+/master:tools/cpp/unix_cc_toolchain_config.bzl
-    unix_cc_toolchain_config(
-        name = name,
-        cpu = target_cpu,
-        compiler = compiler,
-        toolchain_identifier = toolchain_identifier,
-        host_system_name = host_system_name,
-        target_system_name = target_system_name,
-        target_libc = target_libc,
-        abi_version = abi_version,
-        abi_libc_version = abi_libc_version,
-        cxx_builtin_include_directories = cxx_builtin_include_directories,
-        tool_paths = tool_paths,
-        compile_flags = compile_flags,
-        dbg_compile_flags = dbg_compile_flags,
-        opt_compile_flags = opt_compile_flags,
-        cxx_flags = cxx_flags,
-        link_flags = link_flags,
-        link_libs = link_libs,
-        opt_link_flags = opt_link_flags,
-        unfiltered_compile_flags = unfiltered_compile_flags,
-        coverage_compile_flags = coverage_compile_flags,
-        coverage_link_flags = coverage_link_flags,
-        supports_start_end_lib = supports_start_end_lib,
-        builtin_sysroot = sysroot_path,
-    )
+    if host_os == "darwin":
+      osx_cc_toolchain_config(
+          name = name,
+          cpu = target_cpu,
+          compiler = compiler,
+          cxx_builtin_include_directories = cxx_builtin_include_directories,
+          tool_paths_overrides = tool_paths,
+          builtin_sysroot = sysroot_path,
+
+	  # Added so wrapped_clang and wrapped_clang_pp can forward to our
+	  # clang instead of the xcode clang.
+          clang_path = toolchain_path_prefix + "bin/clang",
+          clang_pp_path = toolchain_path_prefix + "bin/clang++",
+	  # The builtin include directories also need to be included with
+	  # -isystem to work properly with bazel.
+          compiler_include_directories = compiler_include_directories,
+      )
+    else:
+      unix_cc_toolchain_config(
+          name = name,
+          cpu = target_cpu,
+          compiler = compiler,
+          toolchain_identifier = toolchain_identifier,
+          host_system_name = host_system_name,
+          target_system_name = target_system_name,
+          target_libc = target_libc,
+          abi_version = abi_version,
+          abi_libc_version = abi_libc_version,
+          cxx_builtin_include_directories = cxx_builtin_include_directories,
+          tool_paths = tool_paths,
+          compile_flags = compile_flags,
+          dbg_compile_flags = dbg_compile_flags,
+          opt_compile_flags = opt_compile_flags,
+          cxx_flags = cxx_flags,
+          link_flags = link_flags,
+          link_libs = link_libs,
+          opt_link_flags = opt_link_flags,
+          unfiltered_compile_flags = unfiltered_compile_flags,
+          coverage_compile_flags = coverage_compile_flags,
+          coverage_link_flags = coverage_link_flags,
+          supports_start_end_lib = supports_start_end_lib,
+          builtin_sysroot = sysroot_path,
+      )

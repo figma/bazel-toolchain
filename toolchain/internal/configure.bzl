@@ -34,6 +34,96 @@ load(
     _sysroot_path = "sysroot_path",
 )
 
+# FIGMA: Copied `_compile_cc_file_single_arch` and `_compile_cc_file` from
+# https://github.com/bazelbuild/bazel/blob/5.2.0/tools/cpp/osx_cc_configure.bzl
+#
+# This is used to compile `wrapped_clang` and `wrapped_clang_pp`. These are
+# tools that the regular bazel xcode build uses. See `wrapped_clang.cc` for
+# more info. We have to make some small changes so that we can redirect to our
+# clang instead of the one in the xcode toolchain.
+
+# TODO: Remove once Xcode 12 is the minimum supported version
+def _compile_cc_file_single_arch(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
+    xcrun_result = repository_ctx.execute([
+        "env",
+        "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-mmacosx-version-min=10.9",
+        "-std=c++11",
+        "-lc++",
+        "-O3",
+        "-o",
+        out_name,
+        src_name,
+    ], 30)
+    if (xcrun_result.return_code != 0):
+        error_msg = (
+            "return code {code}, stderr: {err}, stdout: {out}"
+        ).format(
+            code = xcrun_result.return_code,
+            err = xcrun_result.stderr,
+            out = xcrun_result.stdout,
+        )
+        fail(out_name + " failed to generate. Please file an issue at " +
+             "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+             error_msg)
+
+def _compile_cc_file(repository_ctx, src_name, out_name):
+    env = repository_ctx.os.environ
+    xcrun_result = repository_ctx.execute([
+        "env",
+        "-i",
+        "DEVELOPER_DIR={}".format(env.get("DEVELOPER_DIR", default = "")),
+        "xcrun",
+        "--sdk",
+        "macosx",
+        "clang",
+        "-mmacosx-version-min=10.9",
+        "-std=c++11",
+        "-lc++",
+        "-arch",
+        "arm64",
+        "-arch",
+        "x86_64",
+        "-Wl,-no_adhoc_codesign",
+        "-Wl,-no_uuid",
+        "-O3",
+        "-o",
+        out_name,
+        src_name,
+    ], 30)
+
+    if xcrun_result.return_code == 0:
+        xcrun_result = repository_ctx.execute([
+            "env",
+            "-i",
+            "codesign",
+            "--identifier",  # Required to be reproducible across archs
+            out_name,
+            "--force",
+            "--sign",
+            "-",
+            out_name,
+        ], 30)
+        if xcrun_result.return_code != 0:
+            error_msg = (
+                "codesign return code {code}, stderr: {err}, stdout: {out}"
+            ).format(
+                code = xcrun_result.return_code,
+                err = xcrun_result.stderr,
+                out = xcrun_result.stdout,
+            )
+            fail(out_name + " failed to generate. Please file an issue at " +
+                 "https://github.com/bazelbuild/bazel/issues with the following:\n" +
+                 error_msg)
+    else:
+        _compile_cc_file_single_arch(repository_ctx, src_name, out_name)
+
 def _include_dirs_str(rctx, key):
     dirs = rctx.attr.cxx_builtin_include_directories.get(key)
     if not dirs:
@@ -159,6 +249,11 @@ def llvm_register_toolchains():
         },
     )
 
+    # FIGMA: Only include `wrapped_clang` for darwin builds.
+    wrapped_clang_tools_str = ''
+    if os == 'darwin':
+      wrapped_clang_tools_str = '''"wrapped_clang",\n"wrapped_clang_pp",\n'''
+
     # BUILD file with all the generated toolchain definitions.
     rctx.template(
         "BUILD.bazel",
@@ -169,6 +264,7 @@ def llvm_register_toolchains():
             "%{symlinked_tools}": symlinked_tools_str,
             "%{llvm_repo_package}": _pkg_name_from_label(llvm_repo_label),
             "%{host_dl_ext}": host_dl_ext,
+            "%{wrapped_clang_tools}": wrapped_clang_tools_str,
         },
     )
 
@@ -193,6 +289,14 @@ def llvm_register_toolchains():
             "%{libtool_path}": "/usr/bin/libtool",
         },
     )
+
+    # FIGMA: Copied from https://github.com/bazelbuild/bazel/blob/5.2.0/tools/cpp/osx_cc_configure.bzl
+    # See comment at `_compile_cc_file` above.
+    if os == "darwin":
+      wrapped_clang_src_path = rctx.path(Label("//toolchain:wrapped_clang.cc"))
+      _compile_cc_file(rctx, wrapped_clang_src_path, "wrapped_clang")
+      rctx.symlink("wrapped_clang", "wrapped_clang_pp")
+
 
 def _cc_toolchains_str(
         workspace_name,
@@ -275,6 +379,13 @@ def _cc_toolchain_str(
     # them into `dict`s.
     host_tools_info = json.decode(json.encode(host_tools_info))
 
+    # FIGMA: choose between `apple_cc_toolchain` and `cc_toolchain` based on
+    # the host os.
+    if host_os == 'darwin':
+        cc_toolchain = 'apple_cc_toolchain'
+    else:
+        cc_toolchain = 'cc_toolchain'
+
     template = """
 # CC toolchain for cc-clang-{suffix}.
 
@@ -324,7 +435,7 @@ toolchain(
 
     if use_absolute_paths:
         template = template + """
-cc_toolchain(
+{cc_toolchain}(
     name = "cc-clang-{suffix}",
     all_files = ":empty",
     compiler_files = ":empty",
@@ -380,7 +491,7 @@ filegroup(name = "linker-files-{suffix}", srcs = [":linker-components-{suffix}"{
 filegroup(name = "objcopy-files-{suffix}", srcs = ["{llvm_repo_label_prefix}objcopy"{extra_files_str}])
 filegroup(name = "strip-files-{suffix}", srcs = ["{llvm_repo_label_prefix}strip"{extra_files_str}])
 
-cc_toolchain(
+{cc_toolchain}(
     name = "cc-clang-{suffix}",
     all_files = "all-files-{suffix}",
     ar_files = "archiver-files-{suffix}",
@@ -424,4 +535,6 @@ cc_toolchain(
         llvm_version = toolchain_info.llvm_version,
         extra_files_str = extra_files_str,
         host_tools_info = host_tools_info,
+
+        cc_toolchain = cc_toolchain, # FIGMA
     )

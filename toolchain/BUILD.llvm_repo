@@ -128,3 +128,239 @@ filegroup(
     name = "symbolizer",
     srcs = ["bin/llvm-symbolizer"],
 )
+
+## LLVM import libraries
+
+cc_import(
+    name = "llvm-import",
+    shared_library = "lib/libLLVM.dylib",
+    visibility = ["//visibility:private"],
+)
+
+# Clang import libraries
+
+cc_import(
+    name = "clangAnalysis-import",
+    static_library = "lib/libclangAnalysis.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangAnalysisFlowSensitive-import",
+    static_library = "lib/libclangAnalysisFlowSensitive.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangAST-import",
+    static_library = "lib/libclangAST.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangASTMatchers-import",
+    static_library = "lib/libclangASTMatchers.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangBasic-import",
+    static_library = "lib/libclangBasic.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangEdit-import",
+    static_library = "lib/libclangEdit.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangDriver-import",
+    static_library = "lib/libclangDriver.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangFrontend-import",
+    static_library = "lib/libclangFrontend.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangLex-import",
+    static_library = "lib/libclangLex.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangParse-import",
+    static_library = "lib/libclangParse.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangSema-import",
+    static_library = "lib/libclangSema.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangSerialization-import",
+    static_library = "lib/libclangSerialization.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangStaticAnalyzerCheckers-import",
+    static_library = "lib/libclangStaticAnalyzerCheckers.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangStaticAnalyzerCore-import",
+    static_library = "lib/libclangStaticAnalyzerCore.a",
+    visibility = ["//visibility:private"],
+)
+
+cc_import(
+    name = "clangStaticAnalyzerFrontend-import",
+    static_library = "lib/libclangStaticAnalyzerFrontend.a",
+    visibility = ["//visibility:private"],
+)
+
+
+##  LLVM libraries
+
+cc_library(
+    name = "LLVM",
+    hdrs = glob([
+        "include/llvm/**/*",
+        "include/llvm-c/**/*",
+    ]),
+    includes = ["include"],
+    deps = [":llvm-import"],
+)
+
+## Clang libraries
+
+cc_library(
+    name = "clangAnalysis",
+    hdrs = glob(["include/clang/Analysis/**/*"]),
+    includes = ["include"],
+    deps = [":clangAnalysis-import", ":clangAnalysisFlowSensitive-import"],
+)
+
+cc_library(
+    name = "clangAST",
+    hdrs = glob(["include/clang/AST/*"]),
+    includes = ["include"],
+    deps = [":clangAST-import"],
+)
+
+cc_library(
+    name = "clangASTMatchers",
+    hdrs = glob(["include/clang/ASTMatchers/*"]),
+    includes = ["include"],
+    deps = [":clangASTMatchers-import"],
+)
+
+cc_library(
+    name = "clangBasic",
+    hdrs = glob(["include/clang/Basic/*"]),
+    includes = ["include"],
+    deps = [":clangBasic-import"],
+)
+
+cc_library(
+    name = "clangEdit",
+    hdrs = glob(["include/clang/Edit/*"]),
+    includes = ["include"],
+    deps = [":clangEdit-import"],
+)
+
+cc_library(
+    name = "clangDriver",
+    hdrs = glob(["include/clang/Driver/*"]),
+    includes = ["include"],
+    deps = [":clangDriver-import"],
+)
+
+cc_library(
+    name = "clangFrontend",
+    hdrs = glob(["include/clang/Frontend/*"]),
+    includes = ["include"],
+    deps = [":clangFrontend-import"],
+)
+
+cc_library(
+    name = "clangLex",
+    hdrs = glob(["include/clang/Lex/*"]),
+    includes = ["include"],
+    deps = [":clangLex-import"],
+)
+
+cc_library(
+    name = "clangParse",
+    hdrs = glob(["include/clang/Parse/*"]),
+    includes = ["include"],
+    deps = [":clangParse-import"],
+)
+
+cc_library(
+    name = "clangSema",
+    hdrs = glob(["include/clang/Sema/*"]),
+    includes = ["include"],
+    deps = [":clangSema-import"],
+)
+
+cc_library(
+    name = "clangSerialization",
+    hdrs = glob(["include/clang/Serialization/*"]),
+    includes = ["include"],
+    deps = [":clangSerialization-import"],
+)
+
+cc_library(
+    name = "clangStaticAnalyzerCheckers",
+    hdrs = glob(["include/clang/StaticAnalyzer/Checkers/*"]),
+    includes = ["include"],
+    deps = [":clangStaticAnalyzerCheckers-import"],
+)
+
+cc_library(
+    name = "clangStaticAnalyzerCore",
+    hdrs = glob(["include/clang/StaticAnalyzer/Core/*"]),
+    includes = ["include"],
+    deps = [":clangStaticAnalyzerCore-import"],
+)
+
+cc_library(
+    name = "clangStaticAnalyzerFrontend",
+    hdrs = glob(["include/clang/StaticAnalyzerFrontend/*"]),
+    includes = ["include"],
+    deps = [":clangStaticAnalyzerFrontend-import"],
+)
+
+cc_library(
+    name = "libclang",
+    hdrs = glob([
+        "include/clang-c/*",
+    ]),
+    deps = [
+        ":clangAnalysis",
+        ":clangAST",
+        ":clangASTMatchers",
+        ":clangBasic",
+        ":clangEdit",
+        ":clangDriver",
+        ":clangFrontend",
+        ":clangLex",
+        ":clangParse",
+        ":clangSema",
+        ":clangSerialization",
+        ":clangStaticAnalyzerCheckers",
+        ":clangStaticAnalyzerCore",
+        ":clangStaticAnalyzerFrontend",
+    ],
+)
