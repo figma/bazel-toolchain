@@ -150,10 +150,7 @@ def _sanitizer_feature(name = "", specific_compile_flags = [], specific_link_fla
             flag_set(
                 actions = all_compile_actions,
                 flag_groups = [
-                    flag_group(flags = [
-                        "-fno-omit-frame-pointer",
-                        "-fno-sanitize-recover=all",
-                    ] + specific_compile_flags),
+                    flag_group(flags = specific_compile_flags),
                 ],
                 with_features = [
                     with_feature_set(features = [name]),
@@ -1256,7 +1253,9 @@ def _impl(ctx):
         name = "asan",
         specific_compile_flags = [
             "-fsanitize=address",
-            "-fno-common",
+            # https://github.com/google/sanitizers/issues/1017
+            "-mllvm",
+            "-asan-use-private-alias=1",
         ],
         specific_link_flags = [
             "-fsanitize=address",
